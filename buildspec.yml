@@ -1,0 +1,31 @@
+version: 0.2
+
+env:
+  variables:
+    IMAGE_REPO_NAME: "devbank-frontend"
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Docker Hub...
+      - echo "$DOCKERHUB_PASSWORD" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+      - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - if [ -z "$IMAGE_TAG" ]; then IMAGE_TAG=latest; fi
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker build -t $DOCKERHUB_USERNAME/$IMAGE_REPO_NAME:$IMAGE_TAG .
+      - docker tag $DOCKERHUB_USERNAME/$IMAGE_REPO_NAME:$IMAGE_TAG $DOCKERHUB_USERNAME/$IMAGE_REPO_NAME:latest
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push $DOCKERHUB_USERNAME/$IMAGE_REPO_NAME:$IMAGE_TAG
+      - docker push $DOCKERHUB_USERNAME/$IMAGE_REPO_NAME:latest
+      - printf '[{"name":"frontend","imageUri":"%s"}]' $DOCKERHUB_USERNAME/$IMAGE_REPO_NAME:$IMAGE_TAG > imagedefinitions.json
+      - cat imagedefinitions.json
+
+artifacts:
+  files:
+    - imagedefinitions.json
